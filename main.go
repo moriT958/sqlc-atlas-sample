@@ -11,6 +11,7 @@ import (
 
 func main() {
 
+	// テストの時に使う
 	workdir, err := atlasexec.NewWorkingDir(
 		atlasexec.WithMigrations(
 			os.DirFS("./database/migrations"),
