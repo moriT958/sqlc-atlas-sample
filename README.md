@@ -1,26 +1,28 @@
-# Atlasコマンド復習
+# sqlc + atlas
+sqlcとatlasを使用したマイグレーション環境のテスト
 
-# 使ったコマンドまとめ
+# sqlcメモ
+- `sqlc.yml`を編集し、設定を行う。
+- DDLを記述する。(`schema.sql`)
+- DB操作を記述する。(`query.sql`)
+- `sqlc generate`で、goコードを生成。
+
+# Atlasメモ
 - `atlas.hcl`を編集する。`env`を一つ以上定義する。: atlasの設定
 
-- スキーマ系
-- `atlas schema inspect --env [envname] > [filename]`: 初期DBの反映
-- `atlas schema apply --env [envname]`: 生成された理想スキーマファイルを編集し適応。
+## スキーマ管理系コマンド
+- `atlas schema inspect --env [envname]`: 現在のスキーマ状態を確認
+- `atlas schema apply --env [envname]`: DDLを現在のスキーマに適応
 
-- マイグレーション系
-- `atlas migrate diff --env [envname]`: 理想スキーマファイルとマイグレーションファイルの差分を記録
-- `atlas migrate apply --env [envname]`: マイグレーションファイルをDBに適応
+## マイグレーション系コマンド
+- `atlas migrate diff --env [envname]`: DDLと現在のスキーマの差分を記録
+- `atlas migrate apply --env [envname]`: 記録されたマイグレーションファイルを現在のスキーマに適応
 - `atlas migrate validate --env [envname]`: マイグレーションファイルのチェックサム検証
 - `atlas migrate hash --env [envname]`: チェックサムの再生成
 
-# 注意点
-- atlas-go-sdkを使う場合は、理想スキーマファイルではなく、マイグレーションからテーブル更新したほうがいい。
-- 理由はまず、HCLの整数型は`int`だが、postgresでは`integer`である。
-- そのため、最初にHCLを記述した際は`int`で記述していても、`atlas inspect`した際に`integer`に上書きされてしまう。
-- `integer`に上書きされた状態のまま、go側でHCLファイルを読み込もうとすると、「HCLでは`integer`型は存在しません。」というエラーになるため。
-- したがって、SQL形式で記述されたマイグレーションファイルからスキーマ更新を行なったほうが、ラクである。
-
 # どうやって使っていくか？
-- 理想スキーマファイルは手動でしか触らない。(intがintegerで上書きされないように)
-- もしくは、最初から理想スキーマをHCLではなくSQLで書く。
-- inspectするときは、ターミナルで確認するのに留める。
+- まず、DDLとクエリを記述する。(`schema.sql`, `query.sql`)
+- `sqlc generate`でコードを生成する。
+- `atlas schema apply`でスキーマを適応。
+- スキーマ変更時は、DDLを編集し、`atlas migrate diff`で記録を残した後、`atlas migrate apply`で適応。
+- スキーマ変更後、クエリ記述ファイルを編集し、`sqlc generate`で再生成。
