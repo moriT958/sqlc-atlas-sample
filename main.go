@@ -1,38 +1,57 @@
 package main
 
 import (
+	"atlas-test/tutorial"
 	"context"
-	"fmt"
 	"log"
-	"os"
+	"reflect"
 
-	"ariga.io/atlas-go-sdk/atlasexec"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func main() {
+func run() error {
+	ctx := context.Background()
 
-	// テストの時に使う
-	workdir, err := atlasexec.NewWorkingDir(
-		atlasexec.WithMigrations(
-			os.DirFS("./database/migrations"),
-		),
-	)
+	uri := "postgresql://postgres:postgres@127.0.0.1:5432/mydb?sslmode=disable"
+	conn, err := pgx.Connect(ctx, uri)
 	if err != nil {
-		log.Fatalf("failed to load working directory: %v", err)
+		return err
 	}
-	defer workdir.Close()
+	defer conn.Close(ctx)
 
-	client, err := atlasexec.NewClient(workdir.Path(), "atlas")
+	queries := tutorial.New(conn)
+
+	// list all authors
+	authors, err := queries.ListAuthors(ctx)
 	if err != nil {
-		log.Fatalf("failed to initialize client: %v", err)
+		return err
 	}
-	// Run `atlas migrate apply`
-	res, err := client.MigrateApply(context.Background(), &atlasexec.MigrateApplyParams{
-		URL: "postgres://postgres:postgres@localhost:5432/mydb?sslmode=disable",
+	log.Println(authors)
+
+	// create an author
+	insertedAuthor, err := queries.CreateAuthor(ctx, tutorial.CreateAuthorParams{
+		Name: "Brian Kernighan",
+		Bio:  pgtype.Text{String: "Co-author of The C Programming Language and The Go Programming Language", Valid: true},
 	})
 	if err != nil {
-		log.Fatalf("failed to apply migrations: %v", err)
+		return err
+	}
+	log.Println(insertedAuthor)
+
+	// get the author we just inserted
+	fetchedAuthor, err := queries.GetAuthor(ctx, insertedAuthor.ID)
+	if err != nil {
+		return err
 	}
 
-	fmt.Printf("Applied %d migrations\n", len(res.Applied))
+	// prints true
+	log.Println(reflect.DeepEqual(insertedAuthor, fetchedAuthor))
+	return nil
+}
+
+func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
 }
