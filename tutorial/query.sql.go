@@ -7,28 +7,33 @@ package tutorial
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"database/sql"
 )
 
 const createAuthor = `-- name: CreateAuthor :one
 INSERT INTO authors (
-  name, bio
+  name, bio, age
 ) VALUES (
-  $1, $2
+  $1, $2, $3
 )
-RETURNING id, name, bio
+RETURNING id, name, age, bio
 `
 
 type CreateAuthorParams struct {
 	Name string
-	Bio  pgtype.Text
+	Bio  sql.NullString
+	Age  sql.NullInt32
 }
 
 func (q *Queries) CreateAuthor(ctx context.Context, arg CreateAuthorParams) (Author, error) {
-	row := q.db.QueryRow(ctx, createAuthor, arg.Name, arg.Bio)
+	row := q.db.QueryRowContext(ctx, createAuthor, arg.Name, arg.Bio, arg.Age)
 	var i Author
-	err := row.Scan(&i.ID, &i.Name, &i.Bio)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Age,
+		&i.Bio,
+	)
 	return i, err
 }
 
@@ -38,29 +43,34 @@ WHERE id = $1
 `
 
 func (q *Queries) DeleteAuthor(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, deleteAuthor, id)
+	_, err := q.db.ExecContext(ctx, deleteAuthor, id)
 	return err
 }
 
 const getAuthor = `-- name: GetAuthor :one
-SELECT id, name, bio FROM authors
+SELECT id, name, age, bio FROM authors
 WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetAuthor(ctx context.Context, id int64) (Author, error) {
-	row := q.db.QueryRow(ctx, getAuthor, id)
+	row := q.db.QueryRowContext(ctx, getAuthor, id)
 	var i Author
-	err := row.Scan(&i.ID, &i.Name, &i.Bio)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Age,
+		&i.Bio,
+	)
 	return i, err
 }
 
 const listAuthors = `-- name: ListAuthors :many
-SELECT id, name, bio FROM authors
+SELECT id, name, age, bio FROM authors
 ORDER BY name
 `
 
 func (q *Queries) ListAuthors(ctx context.Context) ([]Author, error) {
-	rows, err := q.db.Query(ctx, listAuthors)
+	rows, err := q.db.QueryContext(ctx, listAuthors)
 	if err != nil {
 		return nil, err
 	}
@@ -68,10 +78,18 @@ func (q *Queries) ListAuthors(ctx context.Context) ([]Author, error) {
 	var items []Author
 	for rows.Next() {
 		var i Author
-		if err := rows.Scan(&i.ID, &i.Name, &i.Bio); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Age,
+			&i.Bio,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -82,17 +100,24 @@ func (q *Queries) ListAuthors(ctx context.Context) ([]Author, error) {
 const updateAuthor = `-- name: UpdateAuthor :exec
 UPDATE authors
   set name = $2,
-  bio = $3
+  bio = $3,
+  age = $4
 WHERE id = $1
 `
 
 type UpdateAuthorParams struct {
 	ID   int64
 	Name string
-	Bio  pgtype.Text
+	Bio  sql.NullString
+	Age  sql.NullInt32
 }
 
 func (q *Queries) UpdateAuthor(ctx context.Context, arg UpdateAuthorParams) error {
-	_, err := q.db.Exec(ctx, updateAuthor, arg.ID, arg.Name, arg.Bio)
+	_, err := q.db.ExecContext(ctx, updateAuthor,
+		arg.ID,
+		arg.Name,
+		arg.Bio,
+		arg.Age,
+	)
 	return err
 }

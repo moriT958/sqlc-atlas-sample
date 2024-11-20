@@ -7,4 +7,4 @@ sql:
       go:
         package: "tutorial"
         out: "tutorial"
-        sql_package: "pgx/v5"
+        # sql_package: "lib/pq"

@@ -3,22 +3,22 @@ package main
 import (
 	"atlas-test/tutorial"
 	"context"
+	"database/sql"
 	"log"
 	"reflect"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
+	_ "github.com/lib/pq"
 )
 
 func run() error {
 	ctx := context.Background()
 
 	uri := "postgresql://postgres:postgres@127.0.0.1:5432/mydb?sslmode=disable"
-	conn, err := pgx.Connect(ctx, uri)
+	conn, err := sql.Open("postgres", uri)
 	if err != nil {
 		return err
 	}
-	defer conn.Close(ctx)
+	defer conn.Close()
 
 	queries := tutorial.New(conn)
 
@@ -32,7 +32,8 @@ func run() error {
 	// create an author
 	insertedAuthor, err := queries.CreateAuthor(ctx, tutorial.CreateAuthorParams{
 		Name: "Brian Kernighan",
-		Bio:  pgtype.Text{String: "Co-author of The C Programming Language and The Go Programming Language", Valid: true},
+		Age:  sql.NullInt32{Int32: 3, Valid: true},
+		Bio:  sql.NullString{String: "Co-author of The C Programming Language and The Go Programming Language", Valid: true},
 	})
 	if err != nil {
 		return err
